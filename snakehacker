@@ -2,25 +2,74 @@ import pygame
 import random
 import string
 import sys
+import math
 
 # ---------------- CONFIG ----------------
 WIDTH, HEIGHT = 900, 600
 CELL_SIZE = 20
-FPS = 12
-ANTIVIRUS_SPEED = 1.2  # <<< MUDE AQUI A VELOCIDADE DO ANTIVIRUS
+FPS = 60
 
 GREEN = (0, 255, 70)
+DARK_GREEN = (0, 40, 0)
 RED = (255, 50, 50)
-BLACK = (0, 0, 0)
+BLACK = (5, 5, 5)
 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("SNAKE VIRUS - INVASION MODE")
 clock = pygame.time.Clock()
 
-font = pygame.font.SysFont("consolas", 16)
+font = pygame.font.SysFont("consolas", 20)
 big_font = pygame.font.SysFont("consolas", 60)
 emoji_font = pygame.font.SysFont("Segoe UI Emoji", CELL_SIZE)
+
+# ---------------- GRID ----------------
+
+def draw_grid():
+    for x in range(0, WIDTH, CELL_SIZE):
+        pygame.draw.line(screen, DARK_GREEN, (x, 0), (x, HEIGHT))
+    for y in range(0, HEIGHT, CELL_SIZE):
+        pygame.draw.line(screen, DARK_GREEN, (0, y), (WIDTH, y))
+
+# ---------------- MENU ----------------
+
+def config_menu():
+    snake_speed = 4
+    antivirus_speed = 2
+
+    while True:
+        screen.fill(BLACK)
+        draw_grid()
+
+        title = big_font.render("CONFIGURAR VELOCIDADE", True, GREEN)
+        screen.blit(title, (WIDTH//2 - title.get_width()//2, 100))
+
+        snake_text = font.render(f"Velocidade da Cobra: {snake_speed}  (← →)", True, GREEN)
+        antivirus_text = font.render(f"Velocidade do Antivírus: {antivirus_speed}  (A D)", True, GREEN)
+        start_text = font.render("Pressione ENTER para começar", True, GREEN)
+
+        screen.blit(snake_text, (WIDTH//2 - 250, 250))
+        screen.blit(antivirus_text, (WIDTH//2 - 250, 300))
+        screen.blit(start_text, (WIDTH//2 - 250, 380))
+
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT and snake_speed > 1:
+                    snake_speed -= 1
+                if event.key == pygame.K_RIGHT and snake_speed < 10:
+                    snake_speed += 1
+                if event.key == pygame.K_a and antivirus_speed > 1:
+                    antivirus_speed -= 1
+                if event.key == pygame.K_d and antivirus_speed < 10:
+                    antivirus_speed += 1
+                if event.key == pygame.K_RETURN:
+                    return snake_speed, antivirus_speed
 
 # ---------------- UTIL ----------------
 
@@ -31,13 +80,20 @@ def random_char():
 # ---------------- SNAKE ----------------
 
 class Snake:
-    def __init__(self):
+    def __init__(self, speed):
         self.body = [(WIDTH//2 // CELL_SIZE * CELL_SIZE,
                       HEIGHT//2 // CELL_SIZE * CELL_SIZE)]
         self.direction = (CELL_SIZE, 0)
         self.grow_next = False
+        self.speed = speed
+        self.move_counter = 0
 
     def move(self):
+        self.move_counter += 1
+        if self.move_counter < (11 - self.speed):
+            return
+        self.move_counter = 0
+
         head_x, head_y = self.body[0]
         dx, dy = self.direction
         new_head = (head_x + dx, head_y + dy)
@@ -54,8 +110,19 @@ class Snake:
             self.direction = (dx, dy)
 
     def draw(self):
-        for segment in self.body:
-            char = random_char()
+        for i, segment in enumerate(self.body):
+            if i == 0:
+                if self.direction == (CELL_SIZE, 0):
+                    char = ">"
+                elif self.direction == (-CELL_SIZE, 0):
+                    char = "<"
+                elif self.direction == (0, CELL_SIZE):
+                    char = "v"
+                else:
+                    char = "^"
+            else:
+                char = random_char()
+
             text = font.render(char, True, GREEN)
             screen.blit(text, segment)
 
@@ -85,124 +152,114 @@ class File:
 # ---------------- ANTIVIRUS ----------------
 
 class Antivirus:
-    def __init__(self):
+    def __init__(self, speed):
         self.position = (
             random.randrange(WIDTH // CELL_SIZE) * CELL_SIZE,
             random.randrange(HEIGHT // CELL_SIZE) * CELL_SIZE
         )
-        self.prev_position = self.position
-        self.direction = "right"
+        self.speed = speed
         self.move_counter = 0
 
-    def move_towards(self, target):
+    def wrap_position(self, x, y):
+        if x >= WIDTH:
+            x = 0
+        if x < 0:
+            x = WIDTH - CELL_SIZE
+        if y >= HEIGHT:
+            y = 0
+        if y < 0:
+            y = HEIGHT - CELL_SIZE
+        return x, y
+
+    def predict_snake_path(self, snake, steps=6):
+        hx, hy = snake.body[0]
+        dx, dy = snake.direction
+        path = []
+
+        for i in range(1, steps + 1):
+            px = hx + dx * i
+            py = hy + dy * i
+            path.append((px, py))
+
+        return path
+
+    def choose_target(self, snake):
+        head = snake.body[0]
+        distance = math.dist(self.position, head)
+
+        future_positions = self.predict_snake_path(snake, steps=8)
+
+        # Se estiver longe → tenta cortar caminho futuro
+        if distance > 200:
+            return future_positions[-1]
+
+        # Se médio → intercepta meio do caminho
+        if distance > 100:
+            return future_positions[len(future_positions)//2]
+
+        # Se perto → tenta bloquear lateral
+        dx, dy = snake.direction
+        block_left = (head[0] - dy, head[1] - dx)
+        block_right = (head[0] + dy, head[1] + dx)
+
+        # Escolhe o lado mais próximo
+        if math.dist(self.position, block_left) < math.dist(self.position, block_right):
+            return block_left
+        else:
+            return block_right
+
+    def move_towards(self, snake):
         self.move_counter += 1
-
-        if self.move_counter < ANTIVIRUS_SPEED:
+        if self.move_counter < (11 - self.speed):
             return
-
         self.move_counter = 0
-        self.prev_position = self.position
 
+        target = self.choose_target(snake)
         tx, ty = target
         x, y = self.position
 
-        dx = 0
-        dy = 0
+        # Movimento inteligente usando menor eixo primeiro
+        dx = tx - x
+        dy = ty - y
 
-        if abs(tx - x) > abs(ty - y):
-            if tx > x:
-                dx = CELL_SIZE
-                self.direction = "right"
-            elif tx < x:
-                dx = -CELL_SIZE
-                self.direction = "left"
+        if abs(dx) > abs(dy):
+            move_x = CELL_SIZE if dx > 0 else -CELL_SIZE
+            move_y = 0
         else:
-            if ty > y:
-                dy = CELL_SIZE
-                self.direction = "down"
-            elif ty < y:
-                dy = -CELL_SIZE
-                self.direction = "up"
+            move_y = CELL_SIZE if dy > 0 else -CELL_SIZE
+            move_x = 0
 
-        self.position = (x + dx, y + dy)
+        new_x = x + move_x
+        new_y = y + move_y
+
+        new_x, new_y = self.wrap_position(new_x, new_y)
+        self.position = (new_x, new_y)
 
     def draw(self):
         x, y = self.position
-
-        if self.direction == "right":
-            text = font.render("->", True, RED)
-        elif self.direction == "left":
-            text = font.render("<-", True, RED)
-        elif self.direction == "up":
-            text = font.render("^", True, RED)
-        else:
-            text = font.render("v", True, RED)
-
+        text = font.render("☣", True, RED)
         rect = text.get_rect(center=(x + CELL_SIZE//2, y + CELL_SIZE//2))
         screen.blit(text, rect)
 
-# ---------------- COUNTDOWN ----------------
-
-def countdown():
-    for line in ["INVADINDO O SISTEMA EM", "3", "2", "1"]:
-        screen.fill(BLACK)
-        text = big_font.render(line, True, GREEN)
-        rect = text.get_rect(center=(WIDTH//2, HEIGHT//2))
-        screen.blit(text, rect)
-        pygame.display.flip()
-        pygame.time.delay(1000)
-
 # ---------------- GAME ----------------
 
-def new_game():
-    snake = Snake()
+def new_game(snake_speed, antivirus_speed):
+    snake = Snake(snake_speed)
     file = File(snake)
-    antivirus = Antivirus()
+    antivirus = Antivirus(antivirus_speed)
     return snake, file, antivirus, 0, False
-
-def game_over_screen():
-    while True:
-        screen.fill(BLACK)
-
-        title = big_font.render("TRACE DETECTED", True, RED)
-        screen.blit(title, (WIDTH//2 - title.get_width()//2, 150))
-
-        btn_exit = pygame.Rect(WIDTH//2 - 200, 300, 400, 60)
-        btn_restart = pygame.Rect(WIDTH//2 - 200, 400, 400, 60)
-
-        pygame.draw.rect(screen, GREEN, btn_exit, 2)
-        pygame.draw.rect(screen, GREEN, btn_restart, 2)
-
-        text1 = font.render("Desistir da invasão", True, GREEN)
-        text2 = font.render("Invadir novamente", True, GREEN)
-
-        screen.blit(text1, (btn_exit.x + 90, btn_exit.y + 20))
-        screen.blit(text2, (btn_restart.x + 90, btn_restart.y + 20))
-
-        pygame.display.flip()
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if btn_exit.collidepoint(event.pos):
-                    pygame.quit()
-                    sys.exit()
-                if btn_restart.collidepoint(event.pos):
-                    return
 
 def main():
     while True:
-        snake, file, antivirus, score, game_over = new_game()
-        countdown()
+        snake_speed, antivirus_speed = config_menu()
+        snake, file, antivirus, score, game_over = new_game(snake_speed, antivirus_speed)
 
         running = True
 
         while running:
             clock.tick(FPS)
             screen.fill(BLACK)
+            draw_grid()
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -222,7 +279,7 @@ def main():
 
             if not game_over:
                 snake.move()
-                antivirus.move_towards(snake.body[0])
+                antivirus.move_towards(snake)
 
                 head = snake.body[0]
 
@@ -237,10 +294,7 @@ def main():
                     score += 1
                     file.respawn()
 
-                if head == antivirus.position:
-                    game_over = True
-
-                if head == antivirus.prev_position and len(snake.body) > 1 and snake.body[1] == antivirus.position:
+                if antivirus.position in snake.body:
                     game_over = True
 
             snake.draw()
@@ -254,7 +308,6 @@ def main():
 
             if game_over:
                 pygame.time.delay(800)
-                game_over_screen()
                 break
 
 if __name__ == "__main__":
