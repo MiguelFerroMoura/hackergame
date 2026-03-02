@@ -1,2 +1,16 @@
 # hackergame
-Um jogo onde vc esta hackeando um computador e deve acumular o maximo de arquivos possiveis antes de o antivirus te capturar o antivirus utiliza um metodo de captura utilizando calculo para achar a rota mais eficaz para chegar no ponto mais perto do jogador de onde ele estiver alem de conseguir utilizar o ambiente a seu favor se necessario mas não foi utilizado uma IA devido ao peso que dari no jogo para poder balancear de maneira justa a velocidade inicial do jogador deve ficar em 4 como padrão e o antivirus em 2 mas ao começar o jogo é dado a possibilidade de modificar a velocidade para deixar o jogo mais facil ou dificil a criterio do jogador
+Hackergame é um jogo de sobrevivência inspirado no estilo Snake, ambientado em um cenário digital onde o jogador assume o papel de um hacker coletando arquivos dentro de um sistema. O objetivo é acumular o maior número possível de arquivos antes de ser capturado pelo antivírus.
+
+O jogador se movimenta pelo mapa coletando arquivos espalhados aleatoriamente. A cada arquivo coletado, sua pontuação aumenta e o desafio se intensifica.
+
+O antivírus atua como perseguidor ativo, utilizando um algoritmo de cálculo de rota para se aproximar do jogador da maneira mais eficiente possível com base na posição atual de ambos. O sistema não utiliza inteligência artificial ou aprendizado de máquina; em vez disso, emprega lógica matemática para determinar a direção mais curta até o alvo, garantindo desempenho leve e consistente.
+
+O balanceamento do jogo é feito por meio do controle de velocidade. Por padrão:
+
+Velocidade do jogador: 4
+
+Velocidade do antivírus: 2
+
+Esses valores foram definidos para oferecer uma vantagem inicial ao jogador, tornando a experiência desafiadora, mas justa. Dependendo da implementação atual do menu inicial, pode haver a possibilidade de ajustar essas velocidades antes do início da partida para aumentar ou reduzir a dificuldade.
+
+O jogo prioriza desempenho, simplicidade algorítmica e equilíbrio entre desafio e jogabilidade, mantendo a mecânica acessível sem comprometer a tensão da perseguição.
